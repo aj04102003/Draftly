@@ -9,6 +9,7 @@ interface JobCardProps {
 
 const JobCard: React.FC<JobCardProps> = ({ job, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [showJD, setShowJD] = useState(false);
   const [editedBody, setEditedBody] = useState(job.emailBody || "");
 
@@ -50,13 +51,31 @@ const JobCard: React.FC<JobCardProps> = ({ job, onUpdate }) => {
       )}
 
       <div className="flex justify-between items-start mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-gray-50 border border-gray-100 rounded-lg flex items-center justify-center text-gray-500 group-hover:bg-black group-hover:text-white transition-colors">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="w-9 h-9 bg-gray-50 border border-gray-100 rounded-lg flex items-center justify-center text-gray-500 group-hover:bg-black group-hover:text-white transition-colors flex-shrink-0">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
           </div>
-          <div>
-            <h3 className="text-xs font-bold text-gray-900 truncate w-32">{job.email.split('@')[0]}</h3>
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{job.email.split('@')[1]}</p>
+          <div className="flex-1 min-w-0">
+            {isEditingEmail ? (
+              <input
+                type="email"
+                value={job.email}
+                onChange={(e) => onUpdate({ email: e.target.value })}
+                className="w-full px-2 py-1 text-xs font-bold text-gray-900 bg-white border border-gray-200 rounded focus:ring-1 focus:ring-black outline-none"
+                autoFocus
+                onBlur={() => setIsEditingEmail(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setIsEditingEmail(false);
+                  }
+                }}
+              />
+            ) : (
+              <div onClick={() => setIsEditingEmail(true)} className="cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5 -mx-1 -my-0.5 transition">
+                <h3 className="text-xs font-bold text-gray-900 truncate">{job.email.split('@')[0]}</h3>
+                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest truncate">{job.email.split('@')[1]}</p>
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -83,6 +102,11 @@ const JobCard: React.FC<JobCardProps> = ({ job, onUpdate }) => {
             <div>
               <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest block mb-0.5">Subject</span>
               <p className="text-xs font-bold text-gray-800 line-clamp-1">{job.emailSubject}</p>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-2">
+              <p className="text-[9px] text-blue-800 font-medium leading-relaxed">
+                <span className="font-bold">Note:</span> Add your profile details (name, email, phone, etc.) to get personalized email drafts with your information in the header.
+              </p>
             </div>
             <div className="flex-1 bg-gray-50/80 border border-gray-100 rounded-xl p-3 overflow-hidden flex flex-col relative">
               <div className="flex justify-between items-center mb-1.5">

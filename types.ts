@@ -8,7 +8,6 @@ export interface UserProfile {
   figma: string;
   resumeLink: string;
   bio: string;
-  isLoggedIn?: boolean;
 }
 
 export interface RawJobData {

@@ -2,7 +2,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { GeminiAnalysisResponse, UserProfile } from "./types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+
+if (!apiKey) {
+  console.warn('VITE_GEMINI_API_KEY is not set. Please set it in your environment variables.');
+}
+
+const ai = new GoogleGenAI({ apiKey });
 
 const RESPONSE_SCHEMA = {
   type: Type.OBJECT,
@@ -29,24 +35,37 @@ const RESPONSE_SCHEMA = {
 
 export async function analyzeJobDescription(description: string, profile: UserProfile): Promise<GeminiAnalysisResponse> {
   try {
+    // Build profile information string, only including fields that are provided
+    const profileFields: string[] = [];
+    
+    if (profile.name) profileFields.push(`- Name: ${profile.name}`);
+    if (profile.email) profileFields.push(`- Email: ${profile.email}`);
+    if (profile.phone) profileFields.push(`- Phone: ${profile.phone}`);
+    if (profile.portfolio) profileFields.push(`- Portfolio: ${profile.portfolio}`);
+    if (profile.linkedin) profileFields.push(`- LinkedIn: ${profile.linkedin}`);
+    if (profile.figma) profileFields.push(`- Figma: ${profile.figma}`);
+    if (profile.resumeLink) profileFields.push(`- Resume: ${profile.resumeLink}`);
+    if (profile.bio) profileFields.push(`- Bio: ${profile.bio}`);
+    
+    const profileInfo = profileFields.length > 0 
+      ? profileFields.join('\n')
+      : 'No profile information provided. Use placeholders like [Your Name], [Your Email], etc.';
+
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `
         Analyze this job description for entry-level suitability.
         
         PROFILE INFORMATION:
-        - Name: ${profile.name || '[Your Name]'}
-        - Email: ${profile.email || '[Your Email]'}
-        - Phone: ${profile.phone || '[Your Phone]'}
-        - Portfolio: ${profile.portfolio || '[Your Portfolio]'}
-        - Resume: ${profile.resumeLink || '[Resume Link]'}
-        - Bio: ${profile.bio || 'Aspiring professional.'}
+        ${profileInfo}
 
         GUIDELINES:
-        - If a profile field is shown as "[Placeholder]", use that exact placeholder in the email body so the user can fill it later.
+        - Only include profile fields that are provided above. Do NOT include fields that are not in the profile information.
+        - If a profile field is missing, do not mention it in the email at all (not even as a placeholder).
         - The email should be polite, energetic, and professional.
         - Focus on "willingness to learn" and "entry-level passion".
         - Ensure the tone fits the role (e.g., designer vs developer).
+        - Include contact information (email, phone, LinkedIn, Figma, Portfolio) only if they are provided in the profile.
 
         REJECTION:
         - reject if >2 years exp is hard-required.
