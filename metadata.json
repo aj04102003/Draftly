@@ -1,0 +1,5 @@
+{
+  "name": "QuickHire Entry-Level Job Assistant",
+  "description": "Intelligently filters job descriptions for entry-level roles and generates personalized application emails with Gmail integration.",
+  "requestFramePermissions": []
+}
