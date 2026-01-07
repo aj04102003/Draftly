@@ -208,7 +208,7 @@ function generateEmailBody(
   const greeting = "Dear Hiring Team,";
 
   // Opening paragraph - enthusiastic and specific
-  const opening = `I am writing to express my enthusiastic interest in the ${role} position. As a ${
+  const opening = `I am writing to express my interest in the ${role} position. As a ${
     profile.bio || 
     `creative professional with a passion for building intuitive, user-friendly solutions`
   }, I am eager to contribute my skills to your team and grow within your fast-paced environment.`;
@@ -216,7 +216,7 @@ function generateEmailBody(
   // Skills/experience paragraph
   let skillsParagraph = "";
   if (field.includes("design") || field.includes("ui") || field.includes("ux")) {
-    skillsParagraph = "I have a strong foundation in creating wireframes, prototypes, and mockups, and I am highly proficient in design tools. I am particularly excited about bringing my experience and creativity to this role and the opportunity to iterate quickly while collaborating with your team to ship high-quality work. My focus is on continuous learning and applying a user-centered approach to every project I undertake.";
+    skillsParagraph = "I have a strong foundation in creating wireframes, prototypes, and mockups, and I am highly proficient in design tools like figma, framer, visily. I am particularly excited about bringing my experience and creativity to this role and the opportunity to iterate quickly while collaborating with your team to ship high-quality work. My focus is on continuous learning and applying a user-centered approach to every project I undertake.";
   } else if (field.includes("software") || field.includes("developer") || field.includes("engineer")) {
     skillsParagraph = "I have a strong foundation in software development and problem-solving, and I am proficient in modern development tools and frameworks. I am particularly excited about bringing my technical skills and creativity to this role and the opportunity to collaborate with your team to build high-quality products. My focus is on continuous learning and writing clean, maintainable code.";
   } else if (field.includes("data") || field.includes("analyst")) {
