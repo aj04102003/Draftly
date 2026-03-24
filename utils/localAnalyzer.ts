@@ -63,6 +63,9 @@ const SENIOR_KEYWORDS = [
 // Experience requirement patterns
 const EXPERIENCE_PATTERNS = [
   /at least\s+(\d+)\s+years?/gi,
+  /minimum\s+(\d+)\s+years?/gi,
+  /(\d+)\+\s*years?\s+(?:of\s+)?experience/gi,
+  /(\d+)\s*-\s*(\d+)\s*years?\s+(?:of\s+)?experience/gi,
 ];
 
 /**
@@ -86,7 +89,6 @@ export function analyzeJobDescriptionLocal(
 
   // 3. Extract years of experience required
   let maxYearsRequired = 0;
-  let minYearsRequired = 0;
 
   for (const pattern of EXPERIENCE_PATTERNS) {
     const matches = [...description.matchAll(pattern)];
@@ -94,7 +96,6 @@ export function analyzeJobDescriptionLocal(
       if (match[1]) {
         const years = parseInt(match[1]);
         maxYearsRequired = Math.max(maxYearsRequired, years);
-        minYearsRequired = minYearsRequired === 0 ? years : Math.min(minYearsRequired, years);
       }
       if (match[2]) {
         const years = parseInt(match[2]);
@@ -120,7 +121,7 @@ export function analyzeJobDescriptionLocal(
     isEntryLevel = true;
     reason = `Requires ${maxYearsRequired} years or less - entry-level acceptable`;
   } else {
-    // No clear indicators, assume entry-level if no experience mentioned
+    // No clear indicators — assume entry-level if no experience mentioned
     isEntryLevel = true;
     reason = "No specific experience requirements mentioned - likely entry-level";
   }
@@ -145,131 +146,186 @@ export function analyzeJobDescriptionLocal(
 }
 
 /**
- * Generate personalized email based on job description and profile
+ * Extract job role from description
+ */
+function extractRole(description: string): string {
+  // Try to grab the role from common patterns
+  const patterns = [
+    /(?:looking for|hiring|seeking|need(?:ing)?|want(?:ing)?)\s+(?:a\s+|an\s+)?([A-Z][a-zA-Z\/\s\-]{3,50}?)(?:\s+who|\s+with|\s+to\s|\.|,|\n)/i,
+    /(?:position|role|opening|vacancy)\s+(?:for\s+)?(?:a\s+|an\s+)?([A-Z][a-zA-Z\/\s\-]{3,50}?)(?:\s+who|\s+with|\.|,|\n)/i,
+    /^(?:we(?:'re| are) (?:looking for|hiring))\s+(?:a\s+|an\s+)?([A-Z][a-zA-Z\/\s\-]{3,50}?)(?:\s|\.|\n)/im,
+  ];
+
+  for (const p of patterns) {
+    const m = description.match(p);
+    if (m && m[1]) {
+      return m[1].trim().replace(/\s+/g, " ");
+    }
+  }
+
+  // Fallback: check for common design/dev role keywords
+  const lower = description.toLowerCase();
+  if (lower.includes("ui/ux") || lower.includes("ui ux") || lower.includes("product designer")) return "UI/UX Designer";
+  if (lower.includes("graphic design")) return "Graphic Designer";
+  if (lower.includes("frontend") || lower.includes("front-end")) return "Frontend Developer";
+  if (lower.includes("backend") || lower.includes("back-end")) return "Backend Developer";
+  if (lower.includes("full stack") || lower.includes("fullstack")) return "Full Stack Developer";
+  if (lower.includes("react")) return "React Developer";
+  if (lower.includes("flutter")) return "Flutter Developer";
+  if (lower.includes("data analyst")) return "Data Analyst";
+  if (lower.includes("content writer") || lower.includes("content creator")) return "Content Writer";
+  if (lower.includes("social media")) return "Social Media Manager";
+  if (lower.includes("marketing")) return "Marketing Executive";
+
+  return "the open position";
+}
+
+/**
+ * Generate subject line
+ */
+function generateSubjectLine(role: string, profile: UserProfile): string {
+  const cleanRole = role
+    .replace(/position|role|job|opening/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (profile.name) {
+    return `Application for ${cleanRole} Position - ${profile.name}`;
+  }
+  return `Application for ${cleanRole} Position`;
+}
+
+/**
+ * Generate the email body using the user's exact preferred template.
+ * All profile fields fall back gracefully if not provided.
  */
 function generateEmail(
   description: string,
   profile: UserProfile
 ): { emailSubject: string; emailBody: string } {
-  // Extract job role if possible
-  const roleMatch = description.match(
-    /(?:position|role|job|opening)[\s:]+(.{10,50}?)(?:\.|,|at|in|\n)/i
-  );
-  const role = roleMatch ? roleMatch[1].trim() : "UI/UX Designer";
-
-  // Detect industry/field
-  let field = "your organization";
-  const lowerDesc = description.toLowerCase();
-  
-  if (lowerDesc.includes("software") || lowerDesc.includes("developer") || lowerDesc.includes("engineer")) {
-    field = "software development";
-  } else if (lowerDesc.includes("design") || lowerDesc.includes("ui") || lowerDesc.includes("ux")) {
-    field = "design";
-  } else if (lowerDesc.includes("marketing") || lowerDesc.includes("digital marketing")) {
-    field = "marketing";
-  } else if (lowerDesc.includes("data") || lowerDesc.includes("analyst")) {
-    field = "data analytics";
-  } else if (lowerDesc.includes("sales")) {
-    field = "sales";
-  }
-
-  // Generate subject line
+  const role = extractRole(description);
   const emailSubject = generateSubjectLine(role, profile);
 
-  // Generate email body
-  const emailBody = generateEmailBody(role, field, profile);
-
-  return { emailSubject, emailBody };
-}
-
-/**
- * Generate catchy subject line
- */
-function generateSubjectLine(role: string, profile: UserProfile): string {
-  // Clean up role for subject line
-  const cleanRole = role.replace(/position|role|job|opening/gi, "").trim();
-  
-  if (profile.name) {
-    return `Application for ${cleanRole} Position - ${profile.name}`;
-  }
-  
-  return `Application for ${cleanRole} Position`;
-}
-
-/**
- * Generate email body with profile information
- * Matches user's preferred format and style
- */
-function generateEmailBody(
-  role: string,
-  field: string,
-  profile: UserProfile
-): string {
+  // ── Greeting ──────────────────────────────────────────────────────────────
   const greeting = "Dear Hiring Team,";
 
-  // Opening paragraph - enthusiastic and specific
-  const opening = `I am writing to express my interest in the ${role} position. As a ${
-    profile.bio || 
-    `creative professional with a passion for building intuitive, user-friendly solutions`
-  }, I am eager to contribute my skills to your team and grow within your fast-paced environment.`;
+  // ── Opening paragraph ─────────────────────────────────────────────────────
+  const bio =
+    profile.bio ||
+    "a creative professional with a passion for building intuitive, user-friendly solutions";
 
-  // Skills/experience paragraph
-  let skillsParagraph = "";
-  if (field.includes("design") || field.includes("ui") || field.includes("ux")) {
-    skillsParagraph = "I have a strong foundation in creating wireframes, prototypes, and mockups, and I am highly proficient in design tools like figma, framer, visily. I am particularly excited about bringing my experience and creativity to this role and the opportunity to iterate quickly while collaborating with your team to ship high-quality work. My focus is on continuous learning and applying a user-centered approach to every project I undertake.";
-  } else if (field.includes("software") || field.includes("developer") || field.includes("engineer")) {
-    skillsParagraph = "I have a strong foundation in software development and problem-solving, and I am proficient in modern development tools and frameworks. I am particularly excited about bringing my technical skills and creativity to this role and the opportunity to collaborate with your team to build high-quality products. My focus is on continuous learning and writing clean, maintainable code.";
-  } else if (field.includes("data") || field.includes("analyst")) {
-    skillsParagraph = "I have a strong foundation in data analysis, visualization, and deriving actionable insights. I am proficient in analytical tools and methodologies. I am particularly excited about bringing my analytical mindset to this role and the opportunity to work with your team on data-driven decision making. My focus is on continuous learning and applying best practices in data analysis.";
+  const opening =
+    `I am writing to express my interest in the ${role} position. As ${bio}, ` +
+    `I am eager to contribute my skills to your team and grow within your fast-paced environment.`;
+
+  // ── Skills paragraph ──────────────────────────────────────────────────────
+  // Detect field for skill blurb
+  const lower = description.toLowerCase();
+  let skillsParagraph: string;
+
+  if (
+    lower.includes("design") ||
+    lower.includes("ui") ||
+    lower.includes("ux") ||
+    lower.includes("figma") ||
+    lower.includes("product designer")
+  ) {
+    skillsParagraph =
+      "I have a strong foundation in creating wireframes, prototypes, and mockups, " +
+      "and I am highly proficient in design tools like figma, framer, visily. " +
+      "I am particularly excited about bringing my experience and creativity to this role " +
+      "and the opportunity to iterate quickly while collaborating with your team to ship high-quality work. " +
+      "My focus is on continuous learning and applying a user-centered approach to every project I undertake.";
+  } else if (
+    lower.includes("software") ||
+    lower.includes("developer") ||
+    lower.includes("engineer") ||
+    lower.includes("frontend") ||
+    lower.includes("backend") ||
+    lower.includes("react") ||
+    lower.includes("flutter")
+  ) {
+    skillsParagraph =
+      "I have a strong foundation in software development and problem-solving, " +
+      "and I am proficient in modern development tools and frameworks. " +
+      "I am particularly excited about bringing my technical skills and creativity to this role " +
+      "and the opportunity to collaborate with your team to build high-quality products. " +
+      "My focus is on continuous learning and writing clean, maintainable code.";
+  } else if (lower.includes("data") || lower.includes("analyst")) {
+    skillsParagraph =
+      "I have a strong foundation in data analysis, visualization, and deriving actionable insights. " +
+      "I am proficient in analytical tools and methodologies. " +
+      "I am particularly excited about bringing my analytical mindset to this role " +
+      "and the opportunity to work with your team on data-driven decision making. " +
+      "My focus is on continuous learning and applying best practices in data analysis.";
+  } else if (lower.includes("content") || lower.includes("writ") || lower.includes("copy")) {
+    skillsParagraph =
+      "I have a strong foundation in crafting compelling content across formats, " +
+      "with a keen eye for audience engagement and brand voice. " +
+      "I am particularly excited about bringing my writing skills and creativity to this role " +
+      "and the opportunity to collaborate with your team on impactful campaigns. " +
+      "My focus is on continuous improvement and delivering content that resonates.";
   } else {
-    skillsParagraph = "I have a strong foundation in my field and am eager to apply my skills and knowledge to real-world challenges. I am particularly excited about bringing my dedication and fresh perspective to this role and the opportunity to collaborate with your team. My focus is on continuous learning and delivering high-quality results.";
+    skillsParagraph =
+      "I have a strong foundation in my field and am eager to apply my skills and knowledge " +
+      "to real-world challenges. I am particularly excited about bringing my dedication and fresh " +
+      "perspective to this role and the opportunity to collaborate with your team. " +
+      "My focus is on continuous learning and delivering high-quality results.";
   }
 
-  // Portfolio and resume links
-  const links: string[] = [];
-  
+  // ── Portfolio / links paragraph ────────────────────────────────────────────
+  const linkLines: string[] = [];
+
   if (profile.portfolio) {
-    links.push(`You can explore my work through my portfolio here: ${profile.portfolio}.`);
+    linkLines.push(
+      `You can explore my work through my framer portfolio : ${profile.portfolio}`
+    );
   }
-  
   if (profile.figma) {
-    links.push(`View my Figma designs: ${profile.figma}.`);
+    linkLines.push(
+      `and my community figma profile :   ${profile.figma}`
+    );
   }
-  
+
+  // Join portfolio lines on the same paragraph if both exist
+  let portfolioParagraph = linkLines.join(" ");
+  if (portfolioParagraph) portfolioParagraph = portfolioParagraph.trim() + ".";
+
+  // Resume on its own line
+  let resumeLine = "";
   if (profile.resumeLink) {
-    links.push(`I have also attached my resume for your review: ${profile.resumeLink}.`);
+    resumeLine = `I have also attached my resume for your review: ${profile.resumeLink}.`;
   }
 
-  const linksSection = links.length > 0 ? links.join("\n\n") : "";
+  // ── Closing ───────────────────────────────────────────────────────────────
+  const closing =
+    "Thank you for your time and consideration. " +
+    "I look forward to the possibility of discussing how my passion and skills can benefit your team.";
 
-  // Closing paragraph
-  const closing = `Thank you for your time and consideration. I look forward to the possibility of discussing how my passion and skills can benefit your team.`;
-
-  // Sign-off with contact info
+  // ── Sign-off ──────────────────────────────────────────────────────────────
   let signoff = "Best regards,";
-  if (profile.name) {
-    signoff += `\n${profile.name.toUpperCase()}`;
-  }
-  if (profile.phone) {
-    signoff += `\n${profile.phone}`;
-  }
-  if (profile.email) {
-    signoff += `\n${profile.email}`;
-  }
-  if (profile.linkedin) {
-    signoff += ` | LinkedIn`;
-  }
 
-  // Combine all parts with proper spacing
-  const parts = [greeting, opening, skillsParagraph];
-  
-  if (linksSection) {
-    parts.push(linksSection);
-  }
-  
+  if (profile.name) signoff += `\n${profile.name.toUpperCase()}`;
+  if (profile.phone) signoff += `\n${profile.phone}`;
+
+  // Email + LinkedIn on the same line
+  const contactLine: string[] = [];
+  if (profile.email) contactLine.push(profile.email);
+  if (profile.linkedin) contactLine.push("LinkedIn");
+  if (contactLine.length) signoff += `\n${contactLine.join(" | ")}`;
+
+  // ── Assemble ──────────────────────────────────────────────────────────────
+  const parts: string[] = [greeting, opening, skillsParagraph];
+
+  if (portfolioParagraph) parts.push(portfolioParagraph);
+  if (resumeLine) parts.push(resumeLine);
+
   parts.push(closing, signoff);
 
-  return parts.join("\n\n");
+  return {
+    emailSubject,
+    emailBody: parts.join("\n\n"),
+  };
 }
 
 /**
@@ -288,11 +344,12 @@ export function batchAnalyzeLocal(
 export function getAnalysisStats(results: GeminiAnalysisResponse[]) {
   const entryLevel = results.filter((r) => r.isEntryLevel).length;
   const skipped = results.length - entryLevel;
-
   return {
     total: results.length,
     entryLevel,
     skipped,
-    percentage: ((entryLevel / results.length) * 100).toFixed(1),
+    percentage: results.length > 0
+      ? ((entryLevel / results.length) * 100).toFixed(1)
+      : "0.0",
   };
 }
