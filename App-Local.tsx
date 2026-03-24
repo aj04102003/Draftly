@@ -29,15 +29,16 @@ const App: React.FC = () => {
     }
 
     return {
-      name: "",
-      email: "",
-      phone: "",
-      portfolio: "",
-      linkedin: "",
-      figma: "",
-      resumeLink: "",
-      bio: "",
-    };
+    name: "Asmita Joshi",
+    email: "Asmitaj674@gmail.com",
+    phone: "+91 9354120880",
+    portfolio: "https://asmita-joshi-portfolio.framer.website/",
+    linkedin: "https://www.linkedin.com/in/asmita-joshi",
+    figma: "https://www.figma.com/@asmitajoshi2",
+    resumeLink:
+      "https://drive.google.com/file/d/1gS-5xlyfaBGdMhLLq4FgikPlz22bdS7G/view?usp=drive_link",
+    bio: "a creative professional with a passion for building intuitive, user-friendly solutions",
+  };
   });
 
   const [initialProfile, setInitialProfile] =
